@@ -66,48 +66,16 @@ img {
 </div>
 
 
+<p>Reviewer: Aaron McKenna</p>
 <pre class="r"><code>#source(&quot;http://bioconductor.org/biocLite.R&quot;)
 #biocLite(&quot;limma&quot;)
 
-library(limma)
-library(GEOquery)</code></pre>
-<pre><code>## Loading required package: Biobase
-## Loading required package: BiocGenerics
-## Loading required package: parallel
-## 
-## Attaching package: &#39;BiocGenerics&#39;
-## 
-## The following objects are masked from &#39;package:parallel&#39;:
-## 
-##     clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
-##     clusterExport, clusterMap, parApply, parCapply, parLapply,
-##     parLapplyLB, parRapply, parSapply, parSapplyLB
-## 
-## The following object is masked from &#39;package:limma&#39;:
-## 
-##     plotMA
-## 
-## The following object is masked from &#39;package:stats&#39;:
-## 
-##     xtabs
-## 
-## The following objects are masked from &#39;package:base&#39;:
-## 
-##     anyDuplicated, append, as.data.frame, as.vector, cbind,
-##     colnames, do.call, duplicated, eval, evalq, Filter, Find, get,
-##     intersect, is.unsorted, lapply, Map, mapply, match, mget,
-##     order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
-##     rbind, Reduce, rep.int, rownames, sapply, setdiff, sort,
-##     table, tapply, union, unique, unlist, unsplit
-## 
-## Welcome to Bioconductor
-## 
-##     Vignettes contain introductory material; view with
-##     &#39;browseVignettes()&#39;. To cite Bioconductor, see
-##     &#39;citation(&quot;Biobase&quot;)&#39;, and for packages &#39;citation(&quot;pkgname&quot;)&#39;.
-## 
-## Setting options(&#39;download.file.method.GEOquery&#39;=&#39;auto&#39;)</code></pre>
-<pre class="r"><code>library(data.table)</code></pre>
+suppressMessages(library(limma))
+suppressMessages(library(GEOquery))
+suppressMessages(library(data.table))
+suppressMessages(library(GSEABase))
+suppressMessages(library(&quot;pheatmap&quot;))
+suppressMessages(library(&quot;RColorBrewer&quot;))</code></pre>
 <pre class="r"><code>data_dir = &quot;~/Documents/Data/GEO/&quot;
 gd &lt;- getGEO(&quot;GSE45735&quot;, destdir = data_dir)</code></pre>
 <pre><code>## ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE45nnn/GSE45735/matrix/
@@ -203,9 +171,8 @@ eb &lt;- eBayes(lm)
 # day1 = data.table(day1, Gene=rownames(day1), key = &quot;Gene&quot;)
 # day3 = topTable(eb, coef = &quot;DayDay3&quot;, adjust=&#39;fdr&#39;, number = Inf)
 # day3 = data.table(day3, Gene=rownames(day3), key = &quot;Gene&quot;)
-# with(day1[day3, nomatch=0], plot(logFC, i.logFC))
-
-# get a list of all genes that are significant on any day (I am really not sure that this is correct - only one gene is significant on a day other than the first)
+# with(day1[day3, nomatch=0], plot(logFC, i.logFC))</code></pre>
+<pre class="r"><code># get a list of all genes that are significant on any day (I am really not sure that this is correct - only one gene is significant on a day other than the first)
 significant_genes = unique(unlist(sapply(1:10, function(x) rownames(topTable(eb, coef = sprintf(&quot;DayDay%d&quot;, x), adjust=&#39;fdr&#39;, sort.by=&#39;none&#39;, number=Inf, p.value=.01)))))
 
 # now get the matrix of logFC for all those genes across all days
@@ -215,12 +182,12 @@ a = sapply(1:10, function(x) {
   dt = data.table(dt, Gene=rownames(dt), key=&quot;Gene&quot;)
   dt[significant_genes]$logFC})
 
-library(&quot;pheatmap&quot;)
-library(&quot;RColorBrewer&quot;)
+rownames(a) &lt;- significant_genes
+colnames(a) &lt;- sprintf(&#39;Day %d&#39;, 1:10)
 
 # now plot it
-pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name = &quot;RdBu&quot;)))(100), show_colnames = T, breaks = seq(-max(abs(a)), max(abs(a)), length.out = 100))</code></pre>
-<p><img src="README_files/figure-html/unnamed-chunk-3-1.png" /></p>
+pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name = &quot;RdBu&quot;)))(100), breaks = seq(-max(abs(a)), max(abs(a)), length.out = 100))</code></pre>
+<p><img src="README_files/figure-html/unnamed-chunk-4-1.png" /></p>
 <pre class="r"><code># day2 = topTable(eb, coef = &quot;DayDay2&quot;, adjust=&#39;fdr&#39;, number = Inf, sort.by=&quot;none&quot;)
 # day3[day1_genes]
 # 
@@ -229,6 +196,66 @@ pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name
 # ?topTable
 # library(plyr)
 #</code></pre>
+<p>Now do the Camera analysis.</p>
+<pre class="r"><code>c2_set &lt;- getGmt(&quot;~/Documents//Biostat_578_repos/HW4_Benjamin_Vernot/GSEA-sets/c2.all.v4.0.symbols.gmt&quot;)
+# c2_set &lt;- getGmt(&quot;GSEA-sets/c2.all.v4.0.symbols.gmt&quot;)
+gene_ids &lt;- geneIds(c2_set)
+# Camera requires gene-indices.  Which function to use will
+# depend on which version of limma you have.
+# http://bioconductor.org/packages/release/bioc/news/limma/NEWS
+# &#39;symbols2indices() renamed to ids2indices().&#39;
+
+if (exists(&quot;ids2indices&quot;)) {
+    sets_indices &lt;- ids2indices(gene_ids, rownames(new_set))
+}
+if (exists(&quot;symbols2indices&quot;)) {
+    sets_indices &lt;- symbols2indices(gene_ids, rownames(new_set))
+}</code></pre>
+<pre class="r"><code># cont_matrix &lt;- makeContrasts(&quot;DayDay1&quot;, levels = design)
+# res &lt;- camera(new_set_voom, sets_indices, design = design, cont_matrix)
+# res[1:10, ]
+
+res &lt;- vector(&quot;list&quot;, length = 10)
+i=1
+for (i in 1:10) {
+    contrast &lt;- paste0(&quot;DayDay&quot;, i)
+    cont_matrix &lt;- suppressMessages(makeContrasts(contrast, levels = design))
+    res[[i]] &lt;- camera(new_set_voom, sets_indices, design = design, contrast = cont_matrix, sort = FALSE)
+}</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<pre><code>## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept</code></pre>
+<p>Display the CAMERA results</p>
+<pre class="r"><code>PValue &lt;- sapply(res, function(x) {
+    ifelse(x$Direction == &quot;Up&quot;, -10 * log10(x$PValue), 10 * log10(x$PValue))
+})
+rownames(PValue) &lt;- rownames(res[[1]])
+PValue_max &lt;- rowMax(abs(PValue))
+PValue_small &lt;- PValue[PValue_max &gt; 30, ]
+anno &lt;- data.frame(Time = paste0(&quot;Day&quot;, 1:10))
+rownames(anno) &lt;- colnames(PValue_small) &lt;- paste0(&quot;Day&quot;, 1:10)
+
+pheatmap(PValue_small, cluster_cols=FALSE, fontsize_row = 5,
+         color=colorRampPalette(rev(brewer.pal(n = 11, name = &quot;RdBu&quot;)))(100), 
+         breaks = seq(-max(abs(PValue_small)), max(abs(PValue_small)), length.out = 100))</code></pre>
+<p><img src="README_files/figure-html/unnamed-chunk-7-1.png" /></p>
 
 
 </div>

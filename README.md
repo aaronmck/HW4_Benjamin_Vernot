@@ -1,56 +1,18 @@
 # Biostat 578 HW4
 
+Reviewer: Aaron McKenna
 
 
 ```r
 #source("http://bioconductor.org/biocLite.R")
 #biocLite("limma")
 
-library(limma)
-library(GEOquery)
-```
-
-```
-## Loading required package: Biobase
-## Loading required package: BiocGenerics
-## Loading required package: parallel
-## 
-## Attaching package: 'BiocGenerics'
-## 
-## The following objects are masked from 'package:parallel':
-## 
-##     clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
-##     clusterExport, clusterMap, parApply, parCapply, parLapply,
-##     parLapplyLB, parRapply, parSapply, parSapplyLB
-## 
-## The following object is masked from 'package:limma':
-## 
-##     plotMA
-## 
-## The following object is masked from 'package:stats':
-## 
-##     xtabs
-## 
-## The following objects are masked from 'package:base':
-## 
-##     anyDuplicated, append, as.data.frame, as.vector, cbind,
-##     colnames, do.call, duplicated, eval, evalq, Filter, Find, get,
-##     intersect, is.unsorted, lapply, Map, mapply, match, mget,
-##     order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
-##     rbind, Reduce, rep.int, rownames, sapply, setdiff, sort,
-##     table, tapply, union, unique, unlist, unsplit
-## 
-## Welcome to Bioconductor
-## 
-##     Vignettes contain introductory material; view with
-##     'browseVignettes()'. To cite Bioconductor, see
-##     'citation("Biobase")', and for packages 'citation("pkgname")'.
-## 
-## Setting options('download.file.method.GEOquery'='auto')
-```
-
-```r
-library(data.table)
+suppressMessages(library(limma))
+suppressMessages(library(GEOquery))
+suppressMessages(library(data.table))
+suppressMessages(library(GSEABase))
+suppressMessages(library("pheatmap"))
+suppressMessages(library("RColorBrewer"))
 ```
 
 
@@ -180,7 +142,10 @@ eb <- eBayes(lm)
 # day3 = topTable(eb, coef = "DayDay3", adjust='fdr', number = Inf)
 # day3 = data.table(day3, Gene=rownames(day3), key = "Gene")
 # with(day1[day3, nomatch=0], plot(logFC, i.logFC))
+```
 
+
+```r
 # get a list of all genes that are significant on any day (I am really not sure that this is correct - only one gene is significant on a day other than the first)
 significant_genes = unique(unlist(sapply(1:10, function(x) rownames(topTable(eb, coef = sprintf("DayDay%d", x), adjust='fdr', sort.by='none', number=Inf, p.value=.01)))))
 
@@ -191,14 +156,14 @@ a = sapply(1:10, function(x) {
   dt = data.table(dt, Gene=rownames(dt), key="Gene")
   dt[significant_genes]$logFC})
 
-library("pheatmap")
-library("RColorBrewer")
+rownames(a) <- significant_genes
+colnames(a) <- sprintf('Day %d', 1:10)
 
 # now plot it
-pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name = "RdBu")))(100), show_colnames = T, breaks = seq(-max(abs(a)), max(abs(a)), length.out = 100))
+pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name = "RdBu")))(100), breaks = seq(-max(abs(a)), max(abs(a)), length.out = 100))
 ```
 
-![](README_files/figure-html/unnamed-chunk-3-1.png) 
+![](README_files/figure-html/unnamed-chunk-4-1.png) 
 
 ```r
 # day2 = topTable(eb, coef = "DayDay2", adjust='fdr', number = Inf, sort.by="none")
@@ -210,4 +175,111 @@ pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name
 # library(plyr)
 #
 ```
+
+
+Now do the Camera analysis.
+
+
+```r
+c2_set <- getGmt("~/Documents//Biostat_578_repos/HW4_Benjamin_Vernot/GSEA-sets/c2.all.v4.0.symbols.gmt")
+# c2_set <- getGmt("GSEA-sets/c2.all.v4.0.symbols.gmt")
+gene_ids <- geneIds(c2_set)
+# Camera requires gene-indices.  Which function to use will
+# depend on which version of limma you have.
+# http://bioconductor.org/packages/release/bioc/news/limma/NEWS
+# 'symbols2indices() renamed to ids2indices().'
+
+if (exists("ids2indices")) {
+    sets_indices <- ids2indices(gene_ids, rownames(new_set))
+}
+if (exists("symbols2indices")) {
+    sets_indices <- symbols2indices(gene_ids, rownames(new_set))
+}
+```
+
+
+```r
+# cont_matrix <- makeContrasts("DayDay1", levels = design)
+# res <- camera(new_set_voom, sets_indices, design = design, cont_matrix)
+# res[1:10, ]
+
+res <- vector("list", length = 10)
+i=1
+for (i in 1:10) {
+    contrast <- paste0("DayDay", i)
+    cont_matrix <- suppressMessages(makeContrasts(contrast, levels = design))
+    res[[i]] <- camera(new_set_voom, sets_indices, design = design, contrast = cont_matrix, sort = FALSE)
+}
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+```
+## Warning in makeContrasts(contrast, levels = design): Renaming (Intercept)
+## to Intercept
+```
+
+
+Display the CAMERA results
+
+
+```r
+PValue <- sapply(res, function(x) {
+    ifelse(x$Direction == "Up", -10 * log10(x$PValue), 10 * log10(x$PValue))
+})
+rownames(PValue) <- rownames(res[[1]])
+PValue_max <- rowMax(abs(PValue))
+PValue_small <- PValue[PValue_max > 30, ]
+anno <- data.frame(Time = paste0("Day", 1:10))
+rownames(anno) <- colnames(PValue_small) <- paste0("Day", 1:10)
+
+pheatmap(PValue_small, cluster_cols=FALSE, fontsize_row = 5,
+         color=colorRampPalette(rev(brewer.pal(n = 11, name = "RdBu")))(100), 
+         breaks = seq(-max(abs(PValue_small)), max(abs(PValue_small)), length.out = 100))
+```
+
+![](README_files/figure-html/unnamed-chunk-7-1.png) 
 
