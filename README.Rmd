@@ -14,6 +14,9 @@ output:
 library(limma)
 library(GEOquery)
 library(data.table)
+```
+
+```{r, cache=TRUE}
 
 data_dir = "~/Documents/Data/GEO/"
 gd <- getGEO("GSE45735", destdir = data_dir)
@@ -26,6 +29,10 @@ files <- list.files(path = data_dir, pattern = "GSE45735_T.*.gz", full.names = T
 
 # Read in gzip-compressed, tab-delimited files
 file_list_orig <- lapply(files, function(x) data.table(read.table(x, sep='\t', header=TRUE), key='Gene'))
+```
+
+
+```{r}
 
 # Subset to only those rows where Gene contains only
 # non-space characters This addresses problems with T14 file

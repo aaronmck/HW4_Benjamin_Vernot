@@ -107,9 +107,8 @@ library(GEOquery)</code></pre>
 ##     &#39;citation(&quot;Biobase&quot;)&#39;, and for packages &#39;citation(&quot;pkgname&quot;)&#39;.
 ## 
 ## Setting options(&#39;download.file.method.GEOquery&#39;=&#39;auto&#39;)</code></pre>
-<pre class="r"><code>library(data.table)
-
-data_dir = &quot;~/Documents/Data/GEO/&quot;
+<pre class="r"><code>library(data.table)</code></pre>
+<pre class="r"><code>data_dir = &quot;~/Documents/Data/GEO/&quot;
 gd &lt;- getGEO(&quot;GSE45735&quot;, destdir = data_dir)</code></pre>
 <pre><code>## ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE45nnn/GSE45735/matrix/
 ## Found 1 file(s)
@@ -125,9 +124,8 @@ getGEOSuppFiles(&quot;GSE45735&quot;, makeDirectory=FALSE, baseDir = data_dir)</
 files &lt;- list.files(path = data_dir, pattern = &quot;GSE45735_T.*.gz&quot;, full.names = TRUE)
 
 # Read in gzip-compressed, tab-delimited files
-file_list_orig &lt;- lapply(files, function(x) data.table(read.table(x, sep=&#39;\t&#39;, header=TRUE), key=&#39;Gene&#39;))
-
-# Subset to only those rows where Gene contains only
+file_list_orig &lt;- lapply(files, function(x) data.table(read.table(x, sep=&#39;\t&#39;, header=TRUE), key=&#39;Gene&#39;))</code></pre>
+<pre class="r"><code># Subset to only those rows where Gene contains only
 # non-space characters This addresses problems with T14 file
 # containing 28 invalid rows at end of file
 file_list &lt;- lapply(file_list_orig, function(file_list) subset(file_list, 
@@ -221,8 +219,8 @@ library(&quot;pheatmap&quot;)
 library(&quot;RColorBrewer&quot;)
 
 # now plot it
-pheatmap(a, cluster_cols = F)</code></pre>
-<p><img src="README_files/figure-html/unnamed-chunk-1-1.png" /></p>
+pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name = &quot;RdBu&quot;)))(100), show_colnames = T, breaks = seq(-max(abs(a)), max(abs(a)), length.out = 100))</code></pre>
+<p><img src="README_files/figure-html/unnamed-chunk-3-1.png" /></p>
 <pre class="r"><code># day2 = topTable(eb, coef = &quot;DayDay2&quot;, adjust=&#39;fdr&#39;, number = Inf, sort.by=&quot;none&quot;)
 # day3[day1_genes]
 # 

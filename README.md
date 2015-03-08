@@ -51,7 +51,10 @@ library(GEOquery)
 
 ```r
 library(data.table)
+```
 
+
+```r
 data_dir = "~/Documents/Data/GEO/"
 gd <- getGEO("GSE45735", destdir = data_dir)
 ```
@@ -81,7 +84,11 @@ files <- list.files(path = data_dir, pattern = "GSE45735_T.*.gz", full.names = T
 
 # Read in gzip-compressed, tab-delimited files
 file_list_orig <- lapply(files, function(x) data.table(read.table(x, sep='\t', header=TRUE), key='Gene'))
+```
 
+
+
+```r
 # Subset to only those rows where Gene contains only
 # non-space characters This addresses problems with T14 file
 # containing 28 invalid rows at end of file
@@ -188,10 +195,10 @@ library("pheatmap")
 library("RColorBrewer")
 
 # now plot it
-pheatmap(a, cluster_cols = F)
+pheatmap(a, cluster_cols = F, color=colorRampPalette(rev(brewer.pal(n = 11, name = "RdBu")))(100), show_colnames = T, breaks = seq(-max(abs(a)), max(abs(a)), length.out = 100))
 ```
 
-![](README_files/figure-html/unnamed-chunk-1-1.png) 
+![](README_files/figure-html/unnamed-chunk-3-1.png) 
 
 ```r
 # day2 = topTable(eb, coef = "DayDay2", adjust='fdr', number = Inf, sort.by="none")
