@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+<title>Biostat 578 HW4</title>
+
+<script src="README_files/jquery-1.11.0/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="README_files/bootstrap-3.3.1/css/bootstrap.min.css" rel="stylesheet" />
+<script src="README_files/bootstrap-3.3.1/js/bootstrap.min.js"></script>
+<script src="README_files/bootstrap-3.3.1/shim/html5shiv.min.js"></script>
+<script src="README_files/bootstrap-3.3.1/shim/respond.min.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="README_files/highlight/default.css"
+      type="text/css" />
+<script src="README_files/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+</style>
+<div class="container-fluid main-container">
+
+
+<div id="header">
+<h1 class="title">Biostat 578 HW4</h1>
+</div>
+
+
+<pre class="r"><code>#source(&quot;http://bioconductor.org/biocLite.R&quot;)
+#biocLite(&quot;limma&quot;)
+
+library(limma)
+library(GEOquery)</code></pre>
+<pre><code>## Loading required package: Biobase
+## Loading required package: BiocGenerics
+## Loading required package: parallel
+## 
+## Attaching package: &#39;BiocGenerics&#39;
+## 
+## The following objects are masked from &#39;package:parallel&#39;:
+## 
+##     clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+##     clusterExport, clusterMap, parApply, parCapply, parLapply,
+##     parLapplyLB, parRapply, parSapply, parSapplyLB
+## 
+## The following object is masked from &#39;package:limma&#39;:
+## 
+##     plotMA
+## 
+## The following object is masked from &#39;package:stats&#39;:
+## 
+##     xtabs
+## 
+## The following objects are masked from &#39;package:base&#39;:
+## 
+##     anyDuplicated, append, as.data.frame, as.vector, cbind,
+##     colnames, do.call, duplicated, eval, evalq, Filter, Find, get,
+##     intersect, is.unsorted, lapply, Map, mapply, match, mget,
+##     order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+##     rbind, Reduce, rep.int, rownames, sapply, setdiff, sort,
+##     table, tapply, union, unique, unlist, unsplit
+## 
+## Welcome to Bioconductor
+## 
+##     Vignettes contain introductory material; view with
+##     &#39;browseVignettes()&#39;. To cite Bioconductor, see
+##     &#39;citation(&quot;Biobase&quot;)&#39;, and for packages &#39;citation(&quot;pkgname&quot;)&#39;.
+## 
+## Setting options(&#39;download.file.method.GEOquery&#39;=&#39;auto&#39;)</code></pre>
+<pre class="r"><code>library(data.table)
+
+data_dir = &quot;~/Documents/Data/GEO/&quot;
+gd &lt;- getGEO(&quot;GSE45735&quot;, destdir = data_dir)</code></pre>
+<pre><code>## ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE45nnn/GSE45735/matrix/
+## Found 1 file(s)
+## GSE45735_series_matrix.txt.gz
+## Using locally cached version: ~/Documents/Data/GEO//GSE45735_series_matrix.txt.gz
+## Using locally cached version of GPL10999 found here:
+## ~/Documents/Data/GEO//GPL10999.soft</code></pre>
+<pre class="r"><code>pd &lt;- pData(gd[[1]])
+## get the actual expression data for five individuals (not sure which five, but subjects 2-6 were discussed a lot in the paper)
+getGEOSuppFiles(&quot;GSE45735&quot;, makeDirectory=FALSE, baseDir = data_dir)</code></pre>
+<pre><code>## ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE45nnn/GSE45735/suppl/</code></pre>
+<pre class="r"><code># Note the regular expression to grep file names
+files &lt;- list.files(path = data_dir, pattern = &quot;GSE45735_T.*.gz&quot;, full.names = TRUE)
+
+# Read in gzip-compressed, tab-delimited files
+file_list_orig &lt;- lapply(files, function(x) data.table(read.table(x, sep=&#39;\t&#39;, header=TRUE), key=&#39;Gene&#39;))
+
+# Subset to only those rows where Gene contains only
+# non-space characters This addresses problems with T14 file
+# containing 28 invalid rows at end of file
+file_list &lt;- lapply(file_list_orig, function(file_list) subset(file_list, 
+    grepl(&quot;^[^[:space:]]+$&quot;, Gene)))
+
+##  which files had the bad rows?
+as.numeric(lapply(file_list_orig, nrow)) - as.numeric(lapply(file_list, nrow))</code></pre>
+<pre><code>## [1]  0  0 29  0  0</code></pre>
+<pre class="r"><code># Remove duplicated rows
+x=file_list[[1]]
+file_list_unique &lt;- lapply(file_list, function(x) {
+    x &lt;- x[!duplicated(x$Gene), ]
+    x &lt;- x[order(x$Gene), ]
+    # data.tables don&#39;t have rownames
+    # rownames(x) &lt;- x$Gene
+    # this doesn&#39;t drop the first colunn in data.table, so I took it out
+    # x[, -1]
+})
+
+##  again, which files had the duplicate rows?
+as.numeric(lapply(file_list, nrow)) - as.numeric(lapply(file_list_unique, nrow))</code></pre>
+<pre><code>## [1] 28 28 28 28 28</code></pre>
+<pre class="r"><code>## keep genes in all five files (the data.table way, which I think isn&#39;t as nice..)
+## also, the second file is missing day 8 (why??) - if you want to rbind them, you have to do this:
+# file_list_unique[[2]][, X8:=NA]
+## add a file ID to each file
+# lapply(1:5, function(x) file_list_unique[[x]][, cat := x])
+## turn into a big data.table
+# full_data_dt = do.call(&#39;rbind&#39;, file_list_unique)
+## only keep genes with all five
+# full_data_dt[, N := .N, by=Gene]
+# full_data_dt = full_data_dt[N == 5]
+# full_data_dt[cat==3]
+
+## make sure that they all have the same set of genes
+gene_names &lt;- Reduce(intersect, lapply(file_list_unique, function(dt) dt[,Gene]))
+file_list_unique &lt;- lapply(file_list_unique, function(dt) dt[gene_names])
+# alternatively: lapply(file_list_unique, &#39;[&#39;, gene_names)
+## then drop the gene column
+file_list_unique &lt;- lapply(file_list_unique, function(dt) dt[, Gene := NULL])
+
+## now cbind them all, to get one matrix with one row per gene, and one column per observation (individual/day)
+matrix = as.matrix(do.call(cbind, file_list_unique))
+
+## set row names
+rownames(matrix) &lt;- gene_names
+
+## clean up pData( remove info about day 8 for second dataset, etc )
+pd_small &lt;- pd[!grepl(&quot;T13_Day8&quot;, pd$title), ]
+## split out day and subject (what a pain in the ass)
+pd_small$Day &lt;- sapply(strsplit(gsub(&quot; \\[PBMC\\]&quot;, &quot;&quot;, pd_small$title), &quot;_&quot;), &quot;[&quot;, 2)
+pd_small$subject &lt;- sapply(strsplit(gsub(&quot; \\[PBMC\\]&quot;, &quot;&quot;, pd_small$title), &quot;_&quot;), &quot;[&quot;, 1)
+
+## set matrix column names
+colnames(matrix) &lt;- rownames(pd_small)
+
+
+## set the rnaseq data as though it&#39;s expression data (right?)
+new_set &lt;- ExpressionSet(assayData = matrix + 1)
+pData(new_set) &lt;- pd_small
+
+## experiment design
+design &lt;- model.matrix(~subject + Day, new_set)
+## normalize with voom
+new_set_voom &lt;- voom(new_set, design = design)
+
+### now actually run limma analysis
+lm &lt;- lmFit(new_set_voom, design)
+eb &lt;- eBayes(lm)
+
+## messing around
+# Look at the other time-points
+# topTable(eb, coef = &quot;DayDay3&quot;, adjust=&#39;fdr&#39;, number = Inf, p.value = .01, sort.by=&quot;p&quot;)
+# day1 = topTable(eb, coef = &quot;DayDay1&quot;, adjust=&#39;fdr&#39;, number = Inf, p.value = .01, sort.by=&quot;p&quot;)
+# day1 = data.table(day1, Gene=rownames(day1), key = &quot;Gene&quot;)
+# day3 = topTable(eb, coef = &quot;DayDay3&quot;, adjust=&#39;fdr&#39;, number = Inf)
+# day3 = data.table(day3, Gene=rownames(day3), key = &quot;Gene&quot;)
+# with(day1[day3, nomatch=0], plot(logFC, i.logFC))
+
+# get a list of all genes that are significant on any day (I am really not sure that this is correct - only one gene is significant on a day other than the first)
+significant_genes = unique(unlist(sapply(1:10, function(x) rownames(topTable(eb, coef = sprintf(&quot;DayDay%d&quot;, x), adjust=&#39;fdr&#39;, sort.by=&#39;none&#39;, number=Inf, p.value=.01)))))
+
+# now get the matrix of logFC for all those genes across all days
+a = sapply(1:10, function(x) {
+  dt = topTable(eb, coef = sprintf(&quot;DayDay%d&quot;, x), adjust=&#39;fdr&#39;, 
+                sort.by=&#39;none&#39;, number=Inf)
+  dt = data.table(dt, Gene=rownames(dt), key=&quot;Gene&quot;)
+  dt[significant_genes]$logFC})
+
+library(&quot;pheatmap&quot;)
+library(&quot;RColorBrewer&quot;)
+
+# now plot it
+pheatmap(a, cluster_cols = F)</code></pre>
+<p><img src="README_files/figure-html/unnamed-chunk-1-1.png" /></p>
+<pre class="r"><code># day2 = topTable(eb, coef = &quot;DayDay2&quot;, adjust=&#39;fdr&#39;, number = Inf, sort.by=&quot;none&quot;)
+# day3[day1_genes]
+# 
+# sapply(1:10, function(x) topTable(eb, coef = sprintf(&quot;DayDay%d&quot;, x), adjust=&#39;fdr&#39;)$logFC)
+# sapply(1:10, function(x) topTable(eb, coef = sprintf(&quot;DayDay%d&quot;, x), adjust=&#39;fdr&#39;, sort.by=&#39;none&#39;, number=Inf)$logFC)
+# ?topTable
+# library(plyr)
+#</code></pre>
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
